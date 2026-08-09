@@ -11,6 +11,7 @@
       --text-main: #ffffff;
       --text-muted: #a0a5ff;
       --accent: #46E3B7;
+      --error-bg: #4a0d18;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -36,6 +37,10 @@
       border-radius: 8px;
       padding: 16px;
       border: 1px solid rgba(255,255,255,0.08);
+    }
+    .card-error {
+      background: var(--error-bg);
+      border-color: rgba(255, 100, 100, 0.3);
     }
     .btn {
       background: transparent;
@@ -111,41 +116,64 @@
     <button class="btn" onclick="showView('home')" style="margin-top: 12px;">Back to Home</button>
   </div>
 
+  <!-- View 5: Error Banner -->
+  <div id="view-error" class="container hidden">
+    <div class="card card-error" style="text-align: center;">
+      <h3 style="margin-bottom: 8px;">Request Failed</h3>
+      <p id="error-message-text" style="color: #ffb0b0; font-size: 14px; margin-bottom: 16px;">
+        Unable to complete request. Please try again.
+      </p>
+      <button class="btn btn-primary" onclick="showView('home')">Retry & Back to Home</button>
+    </div>
+  </div>
+
   <script>
     let API_BASE = '';
     let sessionId = null;
     let currentQuestion = null;
 
-    async function fetchWithFallback(path, options = {}) {
+    async function fetchWithFallback(path, options = {}, timeoutMs = 5000) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
       try {
-        const res = await fetch(`${API_BASE}${path}`, options);
+        const res = await fetch(`${API_BASE}${path}`, {
+          ...options,
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
         if (res.ok) return await res.json();
       } catch (err) {
-        console.warn('Devvit server API call failed:', err);
+        clearTimeout(timeoutId);
+        console.warn(`Devvit server API call to ${path} failed or timed out:`, err);
+        showError('Request timed out or server unavailable. Please try again.');
       }
       return null;
     }
 
     function showView(viewName) {
-      ['home', 'quiz', 'results', 'clubs'].forEach(v => {
+      ['home', 'quiz', 'results', 'clubs', 'error'].forEach((v) => {
         document.getElementById(`view-${v}`).classList.add('hidden');
       });
       document.getElementById(`view-${viewName}`).classList.remove('hidden');
+    }
+
+    function showError(msg) {
+      document.getElementById('error-message-text').innerText = msg;
+      showView('error');
     }
 
     async function startQuiz() {
       const data = await fetchWithFallback('/api/sort/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ university_id: 1, user_id: 'reddit_user' })
+        body: JSON.stringify({ university_id: 1, user_id: 'reddit_user' }),
       });
       if (data && data.session_id) {
         sessionId = data.session_id;
         currentQuestion = data.question;
         renderQuestion();
         showView('quiz');
-      } else {
-        alert('Could not connect to Sortling backend server.');
       }
     }
 
@@ -170,8 +198,8 @@
         body: JSON.stringify({
           session_id: sessionId,
           question_id: currentQuestion.id,
-          option_id: optionId
-        })
+          option_id: optionId,
+        }),
       });
       if (data) {
         if (data.completed) {
@@ -187,8 +215,8 @@
     function renderResults(recs) {
       const container = document.getElementById('recs-container');
       container.innerHTML = '';
-      recs.forEach(r => {
-        const clubName = r.club ? r.club.name : (r.club_name || 'Campus Organization');
+      recs.forEach((r) => {
+        const clubName = r.club ? r.club.name : r.club_name || 'Campus Organization';
         const div = document.createElement('div');
         div.className = 'card';
         div.innerHTML = `
@@ -207,7 +235,7 @@
       if (data && data.clubs) {
         const container = document.getElementById('clubs-container');
         container.innerHTML = '';
-        data.clubs.forEach(c => {
+        data.clubs.forEach((c) => {
           const div = document.createElement('div');
           div.className = 'card';
           div.innerHTML = `
@@ -217,8 +245,6 @@
           container.appendChild(div);
         });
         showView('clubs');
-      } else {
-        alert('Could not load club directory.');
       }
     }
   </script>

@@ -32,7 +32,21 @@ class SessionService:
         db.commit()
         db.refresh(session)
         logger.info(f"Created session {session_id} for university {university_id}")
+        self.cleanup_expired_sessions(db)
         return session
+
+    def cleanup_expired_sessions(self, db: Session, max_age_hours: int = 24) -> int:
+        """Marks stale active sessions created older than max_age_hours as 'expired' to free DB indexes."""
+        from datetime import timedelta
+        cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
+        expired_count = db.query(db_models.RecommendationSession)\
+            .filter(db_models.RecommendationSession.status == "active")\
+            .filter(db_models.RecommendationSession.created_at < cutoff)\
+            .update({"status": "expired"}, synchronize_session=False)
+        if expired_count > 0:
+            db.commit()
+            logger.info(f"Cleaned up {expired_count} expired recommendation sessions.")
+        return expired_count
 
     def get_session(self, db: Session, session_id: str) -> Optional[db_models.RecommendationSession]:
         return db.query(db_models.RecommendationSession).filter_by(id=session_id).first()

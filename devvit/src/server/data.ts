@@ -54,7 +54,7 @@ export interface Event {
   registration_link: string;
 }
 
-export const CLUBS_DATA: Club[] = [
+export const CLUBS_DATA: ReadonlyArray<Club> = Object.freeze([
   {
     id: 1,
     name: 'Enigma • Computer Science & Competitive Coding',
@@ -120,9 +120,9 @@ export const CLUBS_DATA: Club[] = [
     traits: { community_service: 1.0, public_speaking: 0.5 },
     commitment_hours: 2,
   },
-];
+]);
 
-export const QUESTIONS_DATA: Question[] = [
+export const QUESTIONS_DATA: ReadonlyArray<Question> = Object.freeze([
   {
     id: 1,
     code: 'primary_interest',
@@ -159,9 +159,9 @@ export const QUESTIONS_DATA: Question[] = [
       { id: 303, text: 'High (5+ hours per week - Dedicated)', commitment: 6 },
     ],
   },
-];
+]);
 
-export const EVENTS_DATA: Event[] = [
+export const EVENTS_DATA: ReadonlyArray<Event> = Object.freeze([
   {
     id: 1,
     name: 'Smart India Hackathon 2026',
@@ -188,4 +188,12 @@ export const EVENTS_DATA: Event[] = [
     team_rules: 'Bands of 3 to 8 members.',
     registration_link: 'https://music.sorts.me',
   },
-];
+]);
+
+export const CLUB_MAP: ReadonlyMap<number, Club> = new Map(
+  CLUBS_DATA.map((c) => [c.id, c])
+);
+
+export const QUESTION_MAP: ReadonlyMap<number, Question> = new Map(
+  QUESTIONS_DATA.map((q) => [q.id, q])
+);

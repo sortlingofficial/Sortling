@@ -1,4 +1,4 @@
-import { Club, CLUBS_DATA, QUESTIONS_DATA, Question, TraitWeights } from './data.js';
+import { Club, CLUBS_DATA, QUESTIONS_DATA, Question, QUESTION_MAP, TraitWeights } from './data.js';
 
 export interface SessionState {
   sessionId: string;
@@ -9,8 +9,24 @@ export interface SessionState {
 }
 
 const activeSessions = new Map<string, SessionState>();
+const MAX_SESSION_AGE_MS = 15 * 60 * 1000; // 15 minutes TTL eviction
+const MAX_QUESTIONS_PER_SESSION = 8;
+
+/**
+ * Evicts stale active sessions older than 15 minutes to prevent memory accumulation.
+ */
+function pruneStaleSessions(): void {
+  const now = Date.now();
+  for (const [id, session] of activeSessions.entries()) {
+    if (now - session.createdAt > MAX_SESSION_AGE_MS) {
+      activeSessions.delete(id);
+    }
+  }
+}
 
 export function createSession(userId: string = 'reddit_user'): { sessionId: string; firstQuestion: Question } {
+  pruneStaleSessions();
+
   const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const session: SessionState = {
     sessionId,
@@ -30,20 +46,24 @@ export function submitAnswer(
   questionId: number,
   optionId: number
 ): { completed: boolean; nextQuestion?: Question; recommendations?: any[] } {
+  pruneStaleSessions();
+
   const session = activeSessions.get(sessionId);
   if (!session) {
     const fallback = createSession();
     return { completed: false, nextQuestion: fallback.firstQuestion };
   }
 
-  const question = QUESTIONS_DATA.find((q) => q.id === questionId);
+  // O(1) Question lookup
+  const question = QUESTION_MAP.get(questionId) || QUESTIONS_DATA.find((q) => q.id === questionId);
   if (question) {
     const option = question.options.find((o) => o.id === optionId);
     if (option) {
       if (option.traits) {
         for (const [trait, weight] of Object.entries(option.traits)) {
           const current = (session.userTraits as any)[trait] || 0;
-          (session.userTraits as any)[trait] = current + (weight as number);
+          // Clamp trait accumulation between [-1.0, 1.0] to prevent vector blowup
+          (session.userTraits as any)[trait] = Math.max(-1.0, Math.min(1.0, current + (weight as number)));
         }
       }
       if (option.commitment) {
@@ -52,7 +72,16 @@ export function submitAnswer(
     }
   }
 
-  session.answeredQuestionIds.push(questionId);
+  if (!session.answeredQuestionIds.includes(questionId)) {
+    session.answeredQuestionIds.push(questionId);
+  }
+
+  // Soft cap at 8 questions maximum to avoid history stacking
+  if (session.answeredQuestionIds.length >= MAX_QUESTIONS_PER_SESSION) {
+    const recs = calculateRecommendations(session.userTraits, session.commitmentPreference);
+    activeSessions.delete(sessionId);
+    return { completed: true, recommendations: recs };
+  }
 
   const nextQuestion = QUESTIONS_DATA.find((q) => !session.answeredQuestionIds.includes(q.id));
 

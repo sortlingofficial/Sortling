@@ -129,7 +129,7 @@ class VarianceQuestionSelector(IQuestionSelector):
         if not unasked_questions:
             return None
         if not candidate_clubs:
-            return unasked_questions[0]
+            return None
 
         num_answered = len(current_session_traits)
         dynamic_temp = self.temperature + (1.5 * num_answered)
@@ -139,6 +139,10 @@ class VarianceQuestionSelector(IQuestionSelector):
         current_scores.sort(reverse=True)
         top_current_scores = current_scores[:self.top_k_cutoff]
         current_entropy = self._calculate_entropy(top_current_scores, dynamic_temp=dynamic_temp)
+
+        # Base case: candidates fully converged with near-zero entropy
+        if current_entropy <= 1e-6:
+            return None
 
         best_question = None
         best_gain_ratio = -1e9
@@ -172,3 +176,5 @@ class VarianceQuestionSelector(IQuestionSelector):
                 best_question = q
 
         return best_question if best_question else unasked_questions[0]
+
+
