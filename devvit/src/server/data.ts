@@ -62,7 +62,7 @@ export const CLUBS_DATA: ReadonlyArray<Club> = Object.freeze([
     description: 'Premier coding club focused on algorithms, hackathons, open source, and web development.',
     traits: { coding: 1.0, ai_ml: 0.8, design: 0.5 },
     commitment_hours: 4,
-    website: 'https://enigma.sorts.me',
+    website: 'https://enigma.sortling.com',
   },
   {
     id: 2,
@@ -173,7 +173,7 @@ export const EVENTS_DATA: ReadonlyArray<Event> = Object.freeze([
     registration_deadline: '2026-09-15',
     event_date: '2026-10-01',
     team_rules: 'Teams of 3 to 6 students.',
-    registration_link: 'https://sih.sorts.me',
+    registration_link: 'https://sih.sortling.com',
   },
   {
     id: 2,
@@ -186,7 +186,7 @@ export const EVENTS_DATA: ReadonlyArray<Event> = Object.freeze([
     registration_deadline: '2026-09-20',
     event_date: '2026-10-10',
     team_rules: 'Bands of 3 to 8 members.',
-    registration_link: 'https://music.sorts.me',
+    registration_link: 'https://music.sortling.com',
   },
 ]);
 
